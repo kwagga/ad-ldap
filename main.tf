@@ -162,7 +162,7 @@ resource "aws_instance" "windows_server" {
 
     # 1. Install Chocolatey & OpenSSL
     Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-    choco install openssl -y --no-progress
+    choco install git -y --no-progress
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
     # 2. Write PEM files
@@ -184,7 +184,7 @@ ${tls_self_signed_cert.ca_cert.cert_pem}
     # 3. Create & Import PFX
     Import-Certificate -FilePath "C:\root_ca.pem" -CertStoreLocation Cert:\LocalMachine\Root
 
-    & "C:\Program Files\OpenSSL-Win64\bin\openssl.exe" pkcs12 -export -out "C:\server.pfx" -inkey "C:\ad_key.pem" -in "C:\ad_cert.crt" -passout pass:temp-password
+    & "C:\Program Files\Git\usr\bin\openssl.exe" pkcs12 -export -out "C:\server.pfx" -inkey "C:\ad_key.pem" -in "C:\ad_cert.crt" -passout pass:temp-password
 
     $pfxPass = ConvertTo-SecureString -String "temp-password" -Force -AsPlainText
     Import-PfxCertificate -FilePath "C:\server.pfx" -CertStoreLocation Cert:\LocalMachine\My -Password $pfxPass
