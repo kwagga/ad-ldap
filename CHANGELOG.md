@@ -1,3 +1,11 @@
+## [2026-01-30]
+### Added
+- **LDIF Examples** Added LDIF examples for setting up Vault LDAP Secrets engine.
+- **RDP Access** Enabling RDP access for all users that's part of the `Remote Desktop Users` group.
+
+### Changed
+- **Password Generation** Removed `$` as a special character to avoid shell interpretation issues.
+
 ## [2026-01-29]
 ### Added
 - **TF Provider** Explicitly declared `hashicorp/http`

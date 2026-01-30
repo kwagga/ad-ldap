@@ -1,0 +1,23 @@
+dn: CN={{.Username}},CN=Users,DC=adldap,DC=lab
+changetype: add
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: user
+userPrincipalName: {{.Username}}@adldap.lab
+sAMAccountName: {{.Username}}
+
+dn: CN={{.Username}},CN=Users,DC=adldap,DC=lab
+changetype: modify
+replace: unicodePwd
+unicodePwd::{{ printf "%q" .Password | utf16le | base64 }}
+-
+replace: userAccountControl
+userAccountControl: 66048
+-
+
+dn: CN=vault-users,CN=Users,DC=adldap,DC=lab
+changetype: modify
+add: member
+member: CN={{.Username}},CN=Users,DC=adldap,DC=lab
+-

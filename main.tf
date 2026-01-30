@@ -26,7 +26,7 @@ provider "aws" {
 resource "random_password" "ad_password" {
   length           = 20
   special          = true
-  override_special = "#$%&*()-_=+[]{}<>" # Avoid quotes/slashes that break scripts
+  override_special = "#%&*()-_=+[]{}<>" # Avoid quotes/slashes/dollar that break scripts
   min_upper        = 2
   min_lower        = 2
   min_numeric      = 2
@@ -160,7 +160,7 @@ resource "aws_instance" "windows_server" {
     $adminPass = "${local.final_password}"
     net user Administrator $adminPass /active:yes
 
-    # 1. Install Chocolatey & OpenSSL
+    # 1. Install Chocolatey & OpenSSL(via Git)
     Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
     choco install git -y --no-progress
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -189,7 +189,97 @@ ${tls_self_signed_cert.ca_cert.cert_pem}
     $pfxPass = ConvertTo-SecureString -String "temp-password" -Force -AsPlainText
     Import-PfxCertificate -FilePath "C:\server.pfx" -CertStoreLocation Cert:\LocalMachine\My -Password $pfxPass
 
-    # 4. Install AD DS & Promote
+    # 4. Create Post-Promotion Script (So RDP is enabled for Remote Desktop Users Group)
+    $PostScriptContent = @'
+    Start-Transcript -Path "C:\post_promote.log"
+    
+    $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
+    $SysvolPath = "\\$Domain\SYSVOL\$Domain"
+    
+    #Wait for SYSVOL (DC is ready)
+    while (!(Test-Path $SysvolPath)) { Write-Host "Waiting for SYSVOL..."; Start-Sleep 5 }
+
+    Write-Host "Applying RDP Fix..."
+    $LocalInf = "C:\rdp_fix.inf"
+    $LocalDb  = "C:\local_policy.sdb"
+    
+    # Create a clean INF file with only the setting we need
+    # *S-1-5-32-544 = Administrators
+    # *S-1-5-32-555 = Remote Desktop Users
+    $InfContent = @"
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Privilege Rights]
+SeRemoteInteractiveLogonRight = *S-1-5-32-544,*S-1-5-32-555
+"@
+    # Save as Unicode (Needed for Security Templates)
+    $InfContent | Out-File -FilePath $LocalInf -Encoding Unicode
+
+    # Apply immediately using SecEdit
+    secedit /configure /db $LocalDb /cfg $LocalInf /areas USER_RIGHTS
+    Write-Host "Local security policy forced successfully."
+
+    # Update GPO so change persists after reboot
+    Write-Host "Updating Domain Controller GPO for persistence..."
+    $PolicyGUID  = "{6AC1786C-016F-11D2-945F-00C04fB984F9}"
+    $GptTmplPath = "$SysvolPath\Policies\$PolicyGUID\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+    $GptIniPath  = "$SysvolPath\Policies\$PolicyGUID\GPT.INI"
+
+    # Read existing content
+    $Content = Get-Content -Path $GptTmplPath
+    
+    # Check if [Privilege Rights] exists
+    if ($Content -match "\[Privilege Rights\]") {
+        # Section exists. Check if the specific Right exists.
+        if ($Content -match "SeRemoteInteractiveLogonRight") {
+             # Right exists, append our SID if missing
+             if ($Content -notmatch "\*S-1-5-32-555") {
+                 $Content = $Content -replace "SeRemoteInteractiveLogonRight = .*", "$&,*S-1-5-32-555"
+             }
+        } else {
+             # Section exists, but Right is missing. Insert it after the header.
+             $Content = $Content -replace "\[Privilege Rights\]", "[Privilege Rights]`r`nSeRemoteInteractiveLogonRight = *S-1-5-32-544,*S-1-5-32-555"
+        }
+    } else {
+        # Section missing entirely. Append to end.
+        $Content += "`r`n[Privilege Rights]`r`nSeRemoteInteractiveLogonRight = *S-1-5-32-544,*S-1-5-32-555"
+    }
+
+    # Save as Unicode
+    $Content | Set-Content -Path $GptTmplPath -Encoding Unicode
+
+    # Increment Version
+    $IniContent = Get-Content -Path $GptIniPath
+    $NewIniContent = $IniContent | ForEach-Object {
+        if ($_ -match "Version=(\d+)") {
+            $CurrentVer = [int]$matches[1]
+            "Version=$($CurrentVer + 1)"
+        } else {
+            $_
+        }
+    }
+    Set-Content -Path $GptIniPath -Value $NewIniContent -Encoding ASCII
+
+    # Refresh
+    gpupdate /force
+    
+    # Cleanup Task
+    Unregister-ScheduledTask -TaskName "PostPromoteFix" -Confirm:$false
+    Stop-Transcript
+'@
+    $PostScriptContent | Out-File -Encoding ASCII "C:\PostPromote.ps1"
+
+    # Register Scheduled Task to run at startup
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File C:\PostPromote.ps1"
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
+    Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -TaskName "PostPromoteFix"
+
+    # 5. Install AD DS & Promote
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
     
     Write-Output "Promoting to Domain Controller..."

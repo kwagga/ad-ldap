@@ -1,0 +1,8 @@
+dn: CN=vault-users,CN=Users,DC=adldap,DC=lab
+changetype: modify
+delete: member
+member: CN={{.Username}},CN=Users,DC=adldap,DC=lab
+-
+
+dn: CN={{.Username}},CN=Users,DC=adldap,DC=lab
+changetype: delete

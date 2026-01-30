@@ -1,0 +1,20 @@
+dn: CN=vault-svc,CN=Users,DC=adldap,DC=lab
+changetype: add
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: user
+cn: vault-svc
+name: vault-svc
+sAMAccountName: vault-svc
+userPrincipalName: vault-svc@adldap.lab
+displayName: Vault Service Account
+description: Service account for HashiCorp Vault
+userAccountControl: 512
+unicodePwd:: IgBQAEAAcwBzAHcAMAByAGQAMQAyADMAIgA=
+
+dn: CN=Account Operators,CN=Builtin,DC=adldap,DC=lab
+changetype: modify
+add: member
+member: CN=vault-svc,CN=Users,DC=adldap,DC=lab
+-

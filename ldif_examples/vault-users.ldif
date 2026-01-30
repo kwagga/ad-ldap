@@ -1,0 +1,16 @@
+# Create a group for the dynamically created Vault users.
+dn: CN=vault-users,CN=Users,DC=adldap,DC=lab
+changetype: add
+objectClass: top
+objectClass: group
+cn: vault-users
+sAMAccountName: vault-users
+name: vault-users
+description: Group for all dynamically create Vault users
+groupType: -2147483646
+
+# Add the vault-users group to the Remote Desktop Users to allow RDP access.
+dn: CN=Remote Desktop Users,CN=Builtin,DC=adldap,DC=lab
+changetype: modify
+add: member
+member: CN=vault-users,CN=Users,DC=adldap,DC=lab
