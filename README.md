@@ -1,6 +1,15 @@
 # Active Directory with LDAP
-## What is this?
+## What's this?
 This Terraform project deploys a Windows server in AWS and automatically installs and configures Active Directory, LDAP, and LDAPS for use with HashiCorp Vault.
+
+## What does it provide?
+- LDAP connectivity on TCP port `389`
+- LDAPS connectivity on TCP port `636`
+- RDP connectivity on TCP port `3389`
+
+**PLEASE NOTE:** 
+- The default security group allows only the source IP of the system (public exit point) where the TF project was applied.
+- The Default Domain Controllers Policy in AD has been altered to allow all users RDP access to the server.
 
 ## Prerequisites
 - Terraform installed
