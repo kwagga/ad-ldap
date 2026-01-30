@@ -1,3 +1,4 @@
+#This creates a Vault Services account that's able to create other users. The password is P@ssw0rd123 - Do Rotate!
 dn: CN=vault-svc,CN=Users,DC=adldap,DC=lab
 changetype: add
 objectClass: top
