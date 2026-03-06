@@ -14,7 +14,7 @@
 - **Public repo** Created public repo
 
 ### Removed
-- `hashicorp/template` provided removed - deprecated and no longer used.
+- `hashicorp/template` provider removed - deprecated and no longer used.
 
 
 ## [2026-01-14]
